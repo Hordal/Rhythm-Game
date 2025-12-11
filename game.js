@@ -2325,15 +2325,22 @@ function endGame() {
         document.getElementById('rs-good').textContent = goodCount;
         document.getElementById('rs-bad').textContent = badCount;
         document.getElementById('rs-miss').textContent = missCount;
-        // determine rank
-        const pct = Math.min(1, score / (TARGET_SCORE || 1));
+        // determine rank based on accuracy
+        const totalNotes = perfectCount + greatCount + goodCount + badCount + missCount;
+        const perfectWeight = perfectCount * 100;
+        const greatWeight = greatCount * 90;
+        const goodWeight = goodCount * 60;
+        const badWeight = badCount * 20;
+        const missWeight = missCount * 0;
+        const accuracy = totalNotes > 0 ? (perfectWeight + greatWeight + goodWeight + badWeight + missWeight) / (totalNotes * 100) : 0;
+        
         let rank = 'F';
-        if (pct >= 0.985) rank = 'SS';
-        else if (pct >= 0.97) rank = 'S';
-        else if (pct >= 0.93) rank = 'A';
-        else if (pct >= 0.88) rank = 'B';
-        else if (pct >= 0.8) rank = 'C';
-        else if (pct >= 0.7) rank = 'D';
+        if (accuracy >= 0.985) rank = 'SS';
+        else if (accuracy >= 0.97) rank = 'S';
+        else if (accuracy >= 0.93) rank = 'A';
+        else if (accuracy >= 0.88) rank = 'B';
+        else if (accuracy >= 0.8) rank = 'C';
+        else if (accuracy >= 0.7) rank = 'D';
         document.getElementById('final-rank').textContent = rank;
     } catch (e) { console.warn('populate result failed', e); }
     showOverlay(resultScreen);
