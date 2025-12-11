@@ -250,7 +250,7 @@ async function loadGeneratedSongsManifest() {
             for (const e of inline) {
                 if (!e || !e.audio) continue;
                 if (songData.some(s => s.id === e.id || s.audio === e.audio)) continue;
-                songData.push({ id: e.id || ('ai-' + Date.now()), name: e.name || 'AI Song', artist: e.artist || 'AI', thumb: '', bpm: e.bpm || 120, audio: e.audio, durationSec: e.durationSec || 20, tags: ['playable','ai'] });
+                songData.push({ id: e.id || ('ai-' + Date.now()), name: e.name || 'AI Song', artist: e.artist || 'AI', thumb: e.thumb || e.image || e.albumArt || '', bpm: e.bpm || 120, audio: e.audio, durationSec: e.durationSec || 20, tags: ['playable','ai'] });
             }
             try { renderSongList(); renderSongPreview(); } catch (err) {}
             return;
@@ -266,7 +266,7 @@ async function loadGeneratedSongsManifest() {
         for (const e of list) {
             if (!e || !e.audio) continue;
             if (songData.some(s => s.id === e.id || s.audio === e.audio)) continue;
-            songData.push({ id: e.id || ('ai-' + Date.now()), name: e.name || 'AI Song', artist: e.artist || 'AI', thumb: '', bpm: e.bpm || 120, audio: e.audio, durationSec: e.durationSec || 20, tags: ['playable','ai'] });
+            songData.push({ id: e.id || ('ai-' + Date.now()), name: e.name || 'AI Song', artist: e.artist || 'AI', thumb: e.thumb || e.image || e.albumArt || '', bpm: e.bpm || 120, audio: e.audio, durationSec: e.durationSec || 20, tags: ['playable','ai'] });
         }
         try { renderSongList(); renderSongPreview(); } catch(e){}
     } catch (e) {
@@ -378,7 +378,10 @@ function renderSongPreview() {
         title.textContent = '곡을 선택하세요';
         artist.textContent = '';
         stars.innerHTML = '';
-        if (art) art.style.background = 'linear-gradient(135deg,#222,#444)';
+        if (art) {
+            art.style.backgroundImage = 'none';
+            art.style.background = 'linear-gradient(135deg,#222,#444)';
+        }
         recordRate.textContent = '0%';
         bestCombo.textContent = '0';
         title.dataset.songId = '';
@@ -399,7 +402,18 @@ function renderSongPreview() {
     for (let i = 0; i < starCount; i++) {
         const st = document.createElement('span'); st.className = 'star'; stars.appendChild(st);
     }
-    if (art) art.style.background = 'linear-gradient(135deg,#' + Math.floor(Math.random()*0xfffff).toString(16).padStart(5,'0') + ',#444)';
+    // 앨범 아트 이미지 표시
+    if (art) {
+        if (selectedSong.thumb && selectedSong.thumb.trim()) {
+            art.style.backgroundImage = `url('${selectedSong.thumb}')`;
+            art.style.backgroundSize = 'cover';
+            art.style.backgroundPosition = 'center';
+            art.style.backgroundRepeat = 'no-repeat';
+        } else {
+            art.style.backgroundImage = 'none';
+            art.style.background = 'linear-gradient(135deg,#' + Math.floor(Math.random()*0xfffff).toString(16).padStart(5,'0') + ',#444)';
+        }
+    }
     recordRate.textContent = (selectedSong.recordRate || '0') + '%';
     bestCombo.textContent = (selectedSong.bestCombo || '0');
 }
