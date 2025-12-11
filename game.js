@@ -2328,11 +2328,12 @@ function endGame() {
         // determine rank
         const pct = Math.min(1, score / (TARGET_SCORE || 1));
         let rank = 'F';
-        if (pct >= 0.95) rank = 'SS';
-        else if (pct >= 0.9) rank = 'S';
-        else if (pct >= 0.8) rank = 'A';
-        else if (pct >= 0.7) rank = 'B';
-        else if (pct >= 0.6) rank = 'C';
+        if (pct >= 0.985) rank = 'SS';
+        else if (pct >= 0.97) rank = 'S';
+        else if (pct >= 0.93) rank = 'A';
+        else if (pct >= 0.88) rank = 'B';
+        else if (pct >= 0.8) rank = 'C';
+        else if (pct >= 0.7) rank = 'D';
         document.getElementById('final-rank').textContent = rank;
     } catch (e) { console.warn('populate result failed', e); }
     showOverlay(resultScreen);
