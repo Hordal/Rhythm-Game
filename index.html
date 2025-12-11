@@ -1,0 +1,317 @@
+﻿<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rhythm Game</title>
+    <!-- Prevent browser requesting /favicon.ico (avoids 404 in server logs) -->
+    <link rel="icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA8AAAAPCAYAAAA71pVKAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH5AQXEA4nK9w2VwAAAB1pVFh0Q29tbWVudAAAAAAAvK6ymQAAAEpJREFUOMtjYBgFo2AUjIJRMAwMDAw+P///8ZGBgY/8fBxMXGxkYGBgYGBgYGAAAP//AwA2qQdS3D0TQAAAABJRU5ErkJggg==">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-wrapper">
+        <div id="top-bar">
+            <div id="game-logo" aria-hidden="true"></div>
+            <!-- compact live score (moved here to align with top-bar) -->
+            <div id="score-badge" aria-label="live score">
+                <div class="score-left">★</div>
+                <div class="score-num">0000000</div>
+            </div>
+            <!-- top progress bar removed per user request -->
+            <div id="score-container">
+                <div id="score-bar-wrapper">
+                    <div id="score-bar"></div>
+                    <!-- Rank Markers -->
+                    <div class="rank-marker" style="left: 60%;"><span>C</span></div>
+                    <div class="rank-marker" style="left: 70%;"><span>B</span></div>
+                    <div class="rank-marker" style="left: 80%;"><span>A</span></div>
+                    <div class="rank-marker" style="left: 90%;"><span>S</span></div>
+                    <div class="rank-marker" style="left: 95%;"><span>SS</span></div>
+                </div>
+                <div id="score-display">Score: 0</div>
+            </div>
+            <!-- member-status removed (skills trigger via in-game yellow bars) -->
+            <div id="hp-container">
+                <div id="hp-bar-wrapper">
+                    <div id="hp-bar"></div>
+                </div>
+                <div id="hp-text">1000/1000</div>
+            </div>
+            <button id="settings-btn" title="설정">⚙</button>
+            <button id="pause-btn" title="Pause">▐▐</button>
+        </div>
+
+        <div id="stage-overlay" class="stage-overlay">
+            <div class="stage-backdrop"></div>
+            <div class="band-silhouettes">
+                <div class="member m0"></div>
+                <div class="member m1"></div>
+                <div class="member m2"></div>
+                <div class="member m3"></div>
+                <div class="member m4"></div>
+            </div>
+            <div class="lane-lines">
+                <div class="lane-line l0"></div>
+                <div class="lane-line l1"></div>
+                <div class="lane-line l2"></div>
+                <div class="lane-line l3"></div>
+            </div>
+        </div>
+        <canvas id="game-canvas" width="640" height="600"></canvas>
+        <div id="judgement-display" aria-hidden="true"></div>
+
+        <!-- combo (right-center) -->
+        <div id="score-bar-under"> 
+            <div id="score-bar-under-fill" style="width:6%;"></div>
+        </div>
+        <div id="combo-display">
+            <span class="combo-label">COMBO</span>
+            <span id="combo-value">0</span>
+        </div>
+    </div>
+
+    <!-- Judge Test Fullscreen Overlay -->
+    <div id="judge-test-screen" class="overlay" style="display:none;">
+        <div class="overlay-content judge-overlay-content" tabindex="0">
+            <h1>판정 테스트</h1>
+            <div style="display:flex;flex-direction:column;gap:12px;align-items:center;">
+                <div style="display:flex;gap:12px;align-items:center;">
+                    <label style="color:#ccc;">BPM</label>
+                    <input id="judge-bpm" type="number" min="40" max="240" value="100" style="width:100px;padding:8px;border-radius:6px;background:#111;border:1px solid #444;color:#eee;" />
+                    <button id="judge-start">시작</button>
+                    <button id="judge-stop" disabled>중지</button>
+                    <button id="judge-autosuggest">자동 추천</button>
+                    <button id="judge-close">닫기</button>
+                </div>
+                <canvas id="judge-canvas" width="900" height="220" style="background:linear-gradient(180deg,#0b0b0b,#0f0f0f);border-radius:8px;border:1px solid rgba(255,255,255,0.04);width:90%;max-width:1000px;height:220px;"></canvas>
+                <div style="display:flex;gap:24px;width:90%;max-width:1000px;">
+                    <div>최근 입력: <span id="judge-last">-</span></div>
+                    <div>추천 퍼펙트(ms): <span id="judge-suggest-perfect">-</span></div>
+                    <div>추천 굿(ms): <span id="judge-suggest-good">-</span></div>
+                </div>
+                <div style="font-size:13px;color:#bbb;max-width:1000px;text-align:center;">비프음에 맞춰 매핑된 키를 눌러 타이밍을 측정하세요. 충분한 표본 수(10~30회)를 모은 뒤 자동 추천을 사용하세요.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Overlays -->
+    <div id="start-screen" class="overlay">
+        <div class="overlay-content">
+            <h1>Rhythm Game</h1>
+            <p>원하시는 선택 화면을 엽니다.</p>
+            <div style="margin-top:20px; display:flex; gap:10px; justify-content:center;">
+                <button id="open-member-button">밴드</button>
+                <button id="open-song-button">라이브</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- audio status indicator -->
+    <div id="audio-indicator" style="position:fixed; right:12px; top:12px; color:#fff; background:rgba(0,0,0,0.4); padding:6px 10px; border-radius:6px; z-index:20000; display:none;">Muted</div>
+
+    <div id="member-select-screen" class="overlay" style="display:none;">
+        <div class="overlay-content" style="max-width:1200px; width:96%; height:90vh;">
+            <h1>밴드 편성</h1>
+            <p>좌측 슬롯에서 편성을 확인/선택하고, 오른쪽에서 멤버를 선택하여 슬롯에 배치하세요.</p>
+            <div id="member-selection-area" style="display:flex; gap:16px; margin-top:12px; justify-content:center; align-items:center;">
+                <div style="width:100%; display:flex; flex-direction:column; gap:18px; align-items:center;">
+                    <div id="selected-slots" class="selected-slots"></div>
+                    <div style="display:flex; gap:12px; justify-content:center;">
+                        <button id="settings-button">설정</button>
+                        <button id="start-button">게임 시작</button>
+                        <button id="clear-selection">선택 초기화</button>
+                        <button id="open-song-from-member">라이브로 이동</button>
+                    </div>
+                </div>
+            </div>
+            <div style="margin-top:12px; text-align:right;"><button id="back-to-start-from-member">뒤로</button></div>
+        </div>
+    </div>
+
+    <!-- Full-screen member catalog (open when '편성' pressed on a slot) -->
+    <div id="member-catalog-screen" class="overlay" style="display:none;">
+        <div class="overlay-content" style="max-width:900px; width:92%;">
+            <h1>내 멤버</h1>
+            <p>편성할 멤버를 클릭한 후 아래의 '편성' 버튼을 눌러 슬롯에 배치하세요.</p>
+            <div id="member-catalog-list" style="max-height:480px; overflow:auto; margin-top:12px;"></div>
+            <div style="margin-top:8px;">
+                <input id="member-search" type="text" placeholder="이름 또는 스킬로 검색" style="width:100%; padding:8px; border-radius:6px; border:1px solid #444; background:#111; color:#eee;" />
+            </div>
+            <div style="margin-top:12px; display:flex; gap:8px; justify-content:flex-end;"><button id="confirm-assign-button">편성</button><button id="cancel-assign-button">취소</button></div>
+        </div>
+    </div>
+
+    <div id="song-select-screen" class="overlay" style="display:none;">
+        <div class="overlay-content song-select-content" style="width:96%; max-width:1200px;">
+            <div class="song-select-container">
+                <div class="left-panel">
+                    <div id="selected-album-art" class="album-art"></div>
+                    <div class="song-meta">
+                        <div id="preview-title" class="song-title">곡을 선택하세요</div>
+                        <div id="preview-artist" class="song-artist">아티스트</div>
+                        <div class="difficulty-buttons">
+                            <button class="diff-btn" aria-pressed="false">EASY</button>
+                            <button class="diff-btn" aria-pressed="false">NORMAL</button>
+                            <button class="diff-btn" aria-pressed="false">HARD</button>
+                        </div>
+                        <div id="preview-stars" class="stars"></div>
+                        <div class="record-stats">
+                            <div>Record Rate: <span id="record-rate">0%</span></div>
+                            <div>Best Combo: <span id="best-combo">0</span></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="right-panel">
+                    <div class="tabs">
+                        <div class="tab active">ALL TRACK</div>
+                        <div class="tab">PLAYABLE</div>
+                        <div class="tab">RESPECT</div>
+                        <div class="tab">PORTABLE</div>
+                        <div class="tab">FAVORITE</div>
+                    </div>
+                    <div id="song-list" class="song-list songs-right"></div>
+                </div>
+            </div>
+
+            <div class="song-select-bottom">
+                <div class="controls-left">SELECT MUSIC<span class="hint"> (Enter)</span></div>
+                <div class="controls-right">
+                    <button id="confirm-song-button" class="play-btn">PLAY</button>
+                    <button id="back-to-member-from-song" class="back-btn">BACK</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+        <div id="result-screen" class="overlay" style="display: none;">
+                <div class="overlay-content result-content">
+                    <div class="result-left">
+                        <div id="final-rank" class="final-rank">SS</div>
+                        <div id="final-score" class="final-score">1,580,251</div>
+                        <div id="final-stats" class="final-stats">
+                            <div>Max Combo: <span id="rs-max-combo">0</span></div>
+                            <div>Perfect: <span id="rs-perfect">0</span></div>
+                            <div>Great: <span id="rs-great">0</span></div>
+                            <div>Good: <span id="rs-good">0</span></div>
+                            <div>Bad: <span id="rs-bad">0</span></div>
+                            <div>Miss: <span id="rs-miss">0</span></div>
+                        </div>
+                    </div>
+                    <div class="result-right">
+                        <div class="result-buttons">
+                            <button id="rs-continue">나가기</button>
+                            <button id="retry-button">다시하기</button>
+                            <button id="rs-back-to-lobby">계속하기</button>
+                        </div>
+                    </div>
+                </div>
+        </div>
+
+        <!-- Pause Menu -->
+        <div id="pause-menu" class="overlay" style="display:none;">
+            <div class="overlay-content pause-content">
+                <h2>Paused</h2>
+                <div class="pause-buttons">
+                    <button id="pause-exit">나가기</button>
+                    <button id="pause-retry">다시하기</button>
+                    <button id="pause-resume">계속하기</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Modal -->
+        <div id="settings-modal" class="overlay" style="display:none;">
+            <div class="overlay-content settings-content">
+                <h2>설정</h2>
+                <div class="settings-row"><label>노래 볼륨</label><input id="setting-volume" type="range" min="0" max="1" step="0.01"></div>
+                <div class="settings-row" style="display:flex;align-items:center;gap:12px;">
+                    <label style="min-width:90px;">노트 크기</label>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <button id="setting-note-size-dec10" class="num-btn">⟪</button>
+                        <button id="setting-note-size-dec1" class="num-btn">‹</button>
+                        <input id="setting-note-size" type="number" min="50" max="200" step="1" value="100" style="width:84px;text-align:center;padding:6px;border-radius:6px;background:#111;border:1px solid #444;color:#eee;" />
+                        <button id="setting-note-size-inc1" class="num-btn">›</button>
+                        <button id="setting-note-size-inc10" class="num-btn">⟫</button>
+                    </div>
+                    <div style="color:#999;font-size:12px;">(50 ~ 200)</div>
+                </div>
+                <div class="settings-row" style="display:flex;align-items:center;gap:12px;">
+                    <label style="min-width:90px;">노트 속도</label>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <button id="setting-note-speed-dec10" class="num-btn">⟪</button>
+                        <button id="setting-note-speed-dec1" class="num-btn">‹</button>
+                        <input id="setting-note-speed" type="number" min="1" max="12" step="0.1" value="5" style="width:84px;text-align:center;padding:6px;border-radius:6px;background:#111;border:1px solid #444;color:#eee;" />
+                        <button id="setting-note-speed-inc1" class="num-btn">›</button>
+                        <button id="setting-note-speed-inc10" class="num-btn">⟫</button>
+                    </div>
+                    <div style="color:#999;font-size:12px;">(1.0 ~ 12.0)</div>
+                </div>
+                <div class="settings-row"><label>판정 타이밍 (ms)</label>
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                        <div><label style="font-size:12px;color:#aaa;">Perfect</label><input id="setting-perfect-ms" type="number" min="10" max="200" style="width:70px;margin-left:4px;">ms</div>
+                        <div><label style="font-size:12px;color:#aaa;">Great</label><input id="setting-great-ms" type="number" min="20" max="300" style="width:70px;margin-left:4px;">ms</div>
+                        <div><label style="font-size:12px;color:#aaa;">Good</label><input id="setting-good-ms" type="number" min="30" max="400" style="width:70px;margin-left:4px;">ms</div>
+                        <div><label style="font-size:12px;color:#aaa;">Bad</label><input id="setting-bad-ms" type="number" min="40" max="500" style="width:70px;margin-left:4px;">ms</div>
+                    </div>
+                </div>
+                <div class="settings-row"><label>키맵 (직접 변경)</label>
+                    <div id="setting-keymap-buttons" style="display:flex;gap:8px;align-items:center;">
+                        <button class="key-btn" id="setting-key-btn-0">D</button>
+                        <button class="key-btn" id="setting-key-btn-1">F</button>
+                        <button class="key-btn" id="setting-key-btn-2">J</button>
+                        <button class="key-btn" id="setting-key-btn-3">K</button>
+                        <div style="font-size:12px;color:#ccc; margin-left:8px;">버튼을 클릭한 뒤 키를 눌러 변경</div>
+                    </div>
+                    <input id="setting-keymap" type="hidden" placeholder="d,f,j,k">
+                </div>
+                <!-- 판정 테스트는 별도 창(전체화면)에서 실행합니다 -->
+                <div class="settings-row" style="display:flex;flex-direction:row;gap:12px;align-items:center;">
+                    <div style="flex:0 0 auto; font-weight:700;">판정 테스트</div>
+                    <div style="flex:1 1 auto; color:#bbb; font-size:13px;">판정 테스트는 별도의 전체화면 테스트 창에서 실행됩니다. 아래 버튼을 눌러 창을 여세요.</div>
+                    <div style="flex:0 0 auto;"><button id="open-judge-test-btn">판정 테스트 열기</button></div>
+                </div>
+                <div class="settings-actions">
+                    <button id="settings-save">저장</button>
+                    <button id="settings-cancel">취소</button>
+                    <button id="settings-reset">기본값</button>
+                </div>
+            </div>
+        </div>
+
+
+        <script id="manifest-json" type="application/json">
+[
+    {
+        "id": "suno_tears_end",
+        "name": "눈물의 끝에서",
+        "artist": "Suno AI",
+        "audio": "mp3/눈물의 끝에서.mp3",
+        "bpm": null,
+        "durationSec": null,
+        "sourceUrl": null
+    },
+    {
+        "id": "suno_enginebar",
+        "name": "Enginebar",
+        "artist": "Suno AI",
+        "audio": "mp3/Enginebar .mp3",
+        "bpm": null,
+        "durationSec": null,
+        "sourceUrl": null
+    },
+    {
+        "id": "suno_random",
+        "name": "아무거나",
+        "artist": "Suno AI",
+        "audio": "mp3/아무거나.mp3",
+        "bpm": null,
+        "durationSec": null,
+        "sourceUrl": null
+    }
+]
+        </script>
+        <audio id="game-audio"></audio>
+        
+    <script src="game.js"></script>
+</body>
+</html>

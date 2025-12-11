@@ -1,0 +1,17 @@
+{
+  "name": "bangdream-local",
+  "version": "0.1.0",
+  "description": "Local rhythm game workspace with AI song generation helpers",
+  "main": "game.js",
+  "scripts": {
+    "install-deps": "npm install",
+    "generate-all": "node scripts/generate_all.js"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.13.2",
+    "dotenv": "^17.2.3",
+    "minimist": "^1.2.8"
+  }
+}

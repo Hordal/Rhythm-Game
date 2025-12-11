@@ -1,0 +1,989 @@
+body {
+    background-color: #121212;
+    color: #ffffff;
+    display: flex;
+    justify-content: center;
+    align-items: center; /* center the game vertically */
+    height: 100vh;
+    margin: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    overflow: auto;
+}
+
+#game-wrapper {
+    position: relative;
+    border: 2px solid #444;
+    box-shadow: 0 0 25px rgba(0, 255, 255, 0.3);
+    margin-top: 20px; /* space from top when scaled */
+}
+
+/* UI scale - increase to make UI larger (4 = 4x) */
+
+:root {
+    --ui-scale: 1; /* change this value to 1..5 as needed (use 1 for accurate canvas size) */
+}
+
+/* cleaned duplicate game-wrapper block (removed accidental width:0% override) */
+#progress-marker (removed) rules
+
+/* hide old legacy progress elements just in case */
+#progress-bar, #progress-fill, .progress-mark { display: none !important; }
+
+/* ensure new bar is visually on top of any decorative backgrounds */
+#progress-bar-new (removed)
+#progress-track (removed)
+
+/* Score Bar (Left) */
+#score-container {
+    width: 35%;
+}
+#score-display { font-size: 16px; color:#ddd; }
+#score-bar-wrapper {
+    width: 100%;
+    height: 15px;
+    background-color: #333;
+    border: 1px solid #555;
+    border-radius: 8px;
+    position: relative;
+    overflow: hidden;
+}
+#score-bar {
+    width: 0%;
+    height: 100%;
+    background: linear-gradient(90deg, #ff8a00, #e52e71);
+    border-radius: 8px;
+    transition: width 0.5s ease-out;
+}
+.rank-marker {
+    position: absolute;
+    top: -2px;
+    bottom: -2px;
+    width: 2px;
+    background-color: rgba(255, 255, 255, 0.5);
+}
+.rank-marker span {
+    position: absolute;
+    top: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 12px;
+    color: #ccc;
+}
+#score-display {
+    font-size: 14px;
+    margin-top: 5px;
+    color: #eee;
+}
+
+
+/* Combo Display (Center) */
+#combo-display {
+    text-align: center;
+    line-height: 1;
+    width: 160px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+}
+#combo-display #combo-value {
+    font-size: 44px;
+    font-weight: 700;
+    color: #00e6d9;
+    text-shadow: 0 0 12px #00e6d9;
+}
+
+
+/* HP Bar (Right) */
+#hp-container {
+    width: 25%;
+}
+#hp-bar-wrapper {
+    width: 100%;
+    height: 20px;
+    background-color: #333;
+    border: 1px solid #555;
+    border-radius: 10px;
+}
+#hp-bar {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, #ff416c, #ff4b2b);
+    border-radius: 10px;
+    transition: width 0.3s linear;
+}
+
+/* Make HP green and compact like Bandori */
+#hp-bar-wrapper { background:#111; border:1px solid rgba(255,255,255,0.04); width:120px; }
+#hp-bar { background: linear-gradient(90deg,#00e676,#00c853); box-shadow:0 0 12px rgba(0,230,150,0.15); }
+#hp-text { color:#dfffe6; font-weight:700; font-size:12px; margin-left:8px; }
+
+/* pause button */
+#pause-btn { position:absolute; right:12px; top:12px; z-index:250; background: rgba(255,255,255,0.04); color:#fff; border:1px solid rgba(255,255,255,0.06); padding:6px 8px; border-radius:8px; cursor:pointer; }
+#pause-btn:hover { background: rgba(255,255,255,0.08); }
+
+/* Top-bar polish (dark theme restored) */
+#top-bar {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    z-index: 1500;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 14px;
+    background: linear-gradient(180deg, #0b0b0d, #111214); /* darker bar */
+    color: #fff;
+    border-radius: 18px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+}
+#top-bar #game-logo { font-weight:900; color:#fff; }
+
+/* Stage lights effect behind canvas */
+.stage-backdrop::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 8%;
+    width: 760px;
+    height: 240px;
+    transform: translateX(-50%) rotate(0deg);
+    background: radial-gradient(closest-side, rgba(255,255,255,0.06), rgba(255,255,255,0));
+    filter: blur(28px) saturate(120%);
+    opacity: 0.95;
+}
+
+/* HUD styling for score / combo */
+#score-display { font-weight:600; }
+
+/* Hide textual 'Score: ...' display in top-bar (not needed) */
+#score-display { display: none !important; }
+#combo-display { margin-top: -4px; }
+
+/* make the canvas wrapper have subtle outer frame like game */
+#game-wrapper {
+    border-radius: 6px;
+    overflow: hidden;
+    background: linear-gradient(180deg,#0c0c0f,#101216);
+}
+
+
+/* Canvas */
+canvas {
+    display: block;
+    background: linear-gradient(180deg,#0f0f12,#16161a); /* dark stage background */
+    border-radius: 6px;
+    box-shadow: 0 0 30px rgba(0,0,0,0.6) inset;
+    width: 640px;
+    height: 600px;
+    position: relative;
+    z-index: 3;
+}
+
+/* Stage overlay (decorative band visuals above canvas) */
+.stage-overlay {
+    position: absolute;
+    top: 60px; /* below top-bar inside wrapper */
+    left: 0;
+    width: 100%;
+    height: calc(100% - 60px);
+    pointer-events: none; /* decorative only */
+    z-index: 1; /* behind canvas */
+    display: none; /* shown when playing */
+}
+.stage-backdrop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 45%;
+    background: linear-gradient(180deg,#112,#111 60%);
+    opacity: 0.95;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.6) inset;
+}
+.band-silhouettes { position:absolute; left:0; right:0; top:8%; height:40%; display:flex; justify-content:center; align-items:flex-end; gap:28px; padding:0 40px; }
+.band-silhouettes .member { width:110px; height:140px; background:linear-gradient(180deg,#222,#333); border-radius:10px; opacity:0.95; box-shadow: 0 12px 30px rgba(0,0,0,0.6); transform: translateY(8%); display:flex; flex-direction:column; align-items:center; justify-content:flex-end; color:#fff; font-weight:800; padding-bottom:8px; }
+.band-silhouettes .member .avatar-art { width:72px; height:72px; border-radius:12px; background:linear-gradient(135deg, rgba(20,20,20,0.95), rgba(40,40,40,0.6)); color:#ddd; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:20px; box-shadow:0 8px 22px rgba(0,0,0,0.6); margin-bottom:8px; }
+.band-silhouettes .member .avatar-art { position:relative; overflow:hidden; }
+.band-silhouettes .member .avatar-art .avatar-img { width:72px; height:72px; object-fit:cover; display:block; }
+.band-silhouettes .member .avatar-art .avatar-fallback { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-weight:900; color:#ddd; font-size:20px; background: linear-gradient(135deg, rgba(24,24,24,0.95), rgba(44,44,44,0.6)); }
+.band-silhouettes .member .info { display:flex; flex-direction:column; align-items:center; gap:6px; margin-bottom:6px; }
+.band-silhouettes .member .name { font-size:13px; color:rgba(255,255,255,0.98); }
+.band-silhouettes .member .meta { display:flex; gap:6px; align-items:center; }
+.band-silhouettes .member .level-badge { background: rgba(0,0,0,0.28); color:#fff; padding:4px 6px; border-radius:6px; font-size:11px; font-weight:700; }
+.band-silhouettes .member .skill-badge { font-size:11px; padding:4px 6px; border-radius:10px; background: rgba(255,255,255,0.12); color:#ffdfe6; font-weight:800; }
+.band-silhouettes .member .name { position:absolute; bottom:6px; font-size:11px; color:rgba(255,255,255,0.9); background: rgba(0,0,0,0.25); padding:2px 6px; border-radius:6px; }
+
+/* Stage chibi sprites shown on the stage floor */
+.stage-chibis {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 18px; /* above judgement line */
+    height: 140px;
+    pointer-events: none;
+    display: block;
+    z-index: 40; /* in front of canvas */
+}
+.stage-chibis .chibi {
+    position: absolute;
+    bottom: 0;
+    width: 120px;
+    height: 120px;
+    transform: translateX(-50%);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+    background: linear-gradient(180deg,#222,#111);
+}
+.stage-chibis .chibi img { width:100%; height:100%; object-fit:cover; display:block; }
+.lane-lines { position:absolute; left:0; right:0; bottom:40px; height: calc(100% - 120px); pointer-events:none; }
+.lane-lines::before { content:''; position:absolute; left:10%; right:10%; top:0; bottom:0; border-top:2px solid rgba(255,255,255,0.06); }
+.lane-line { position:absolute; top:0; bottom:0; width:2px; background: rgba(255,255,255,0.03); }
+.lane-line.l0 { left:10%; }
+.lane-line.l1 { left:35%; }
+.lane-line.l2 { left:65%; }
+.lane-line.l3 { left:90%; }
+
+/* floating score badge (restyled to dark theme) */
+#score-badge {
+    position: relative; /* inside top-bar */
+    margin-left: 8px;
+    min-width: 110px;
+    padding: 6px 10px;
+    background: linear-gradient(180deg,#0f1112,#0b0b0d);
+    color: #ffdfe6; /* soft pinkish */
+    border: 1px solid rgba(255,255,255,0.02);
+    border-radius: 12px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    z-index: 220;
+    box-shadow: 0 8px 18px rgba(0,0,0,0.6);
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-size:16px;
+    line-height:1;
+}
+.score-left { width:30px; height:22px; display:flex; align-items:center; justify-content:center; background: linear-gradient(180deg,#0b0b0b,#1a1a1a); color:#b2f5ea; border-radius:6px; font-weight:800; }
+.score-num { font-family: 'Courier New', monospace; color:#ffdfe6; font-weight:900; }
+
+.score-badge-pulse {
+    transform: scale(1.06);
+    transition: transform 220ms ease;
+    box-shadow: 0 12px 36px rgba(232,59,90,0.18);
+}
+
+/* small responsive tweak: if viewport narrow, shrink progress bar to keep badge visible */
+@media (max-width:920px) {
+    #progress-bar { width: 60%; }
+    #score-badge { left: 10px; top: 8px; padding:8px 10px; font-size:16px; min-width:100px; }
+}
+
+/* small score bar under the badge */
+#score-bar-under {
+    position: absolute;
+    left: 12px;
+    top: 46px; /* below badge */
+    width: 180px;
+    height: 10px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 8px;
+    overflow: hidden;
+    z-index: 220;
+    border: 1px solid rgba(0,0,0,0.6);
+}
+#score-bar-under-fill {
+    height: 100%;
+    width: 6%;
+    background: linear-gradient(90deg,#ff93b0,#ff4666);
+    box-shadow: 0 4px 12px rgba(255,70,120,0.12) inset;
+    transition: width 0.4s ease;
+}
+
+/* hide the small secondary pink score bar under the top badge */
+#score-bar-under, #score-bar-under-fill { display: none !important; }
+
+/* combo positioned at right-center vertically */
+#combo-display {
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 220;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    pointer-events: none;
+}
+#combo-display .combo-label { font-size: 12px; color: rgba(255,255,255,0.8); }
+#combo-display #combo-value { font-size: 64px; color: #00ffe0; text-shadow: 0 0 28px rgba(0,255,220,0.32), 0 6px 18px rgba(0,0,0,0.6); font-weight:900; }
+
+
+/* Overlays (Start & Result Screens) */
+.overlay {
+    position: fixed; /* fixed so overlays stay normal-sized and centered in viewport */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.98); /* more opaque so game behind not visible */
+    z-index: 100;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+}
+#start-screen {
+    z-index: 10000;
+}
+
+#member-select-screen,
+#member-catalog-screen,
+#song-select-screen,
+#result-screen {
+    z-index: 1000;
+}
+
+.overlay-content {
+    background-color: rgba(30, 30, 30, 0.98);
+    padding: 40px;
+    border-radius: 15px;
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
+    color: #ffffff;
+    pointer-events: auto; /* ensure overlay content accepts clicks */
+}
+.overlay h1 {
+    margin-bottom: 20px;
+    color: #00ffff;
+}
+
+/* Judge test specific styling to feel like game screen */
+.judge-overlay-content {
+    width: min(1100px, 96vw);
+    max-width: 1100px;
+    padding: 28px 36px;
+    background: linear-gradient(180deg, #222 0%, #151515 100%);
+    border-radius: 12px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+    color: #eee;
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+    align-items:center;
+}
+.judge-overlay-content h1 { color: #13f7e1; font-size:34px; margin:6px 0 6px 0; }
+.judge-overlay-content button { background:#ff4da6; color:white; border:none; padding:10px 14px; border-radius:8px; cursor:pointer; }
+.judge-overlay-content button[disabled] { opacity:0.5; cursor:default; }
+.judge-overlay-content #judge-canvas { border-radius:10px; box-shadow: inset 0 6px 18px rgba(0,0,0,0.6); }
+.judge-overlay-content .controls { display:flex; gap:12px; align-items:center; }
+#final-rank {
+    font-size: 100px;
+    font-weight: bold;
+    margin-bottom: 20px;
+    color: #ffdd00;
+    text-shadow: 0 0 20px #ffdd00;
+}
+#retry-button {
+    margin-top: 30px;
+    padding: 10px 20px;
+    font-size: 1.2em;
+    background-color: #00ffff;
+    color: #121212;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+#retry-button:hover {
+    background-color: #ffffff;
+}
+.controls-info {
+    margin-top: 30px;
+    color: #aaa;
+}
+
+#skill-status.active {
+    color: #00ffff;
+    font-weight: bold;
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+/* Ensure overlays (including settings) are perfectly centered and scroll if tall */
+.overlay {
+    padding: 20px; /* allow breathing room on small viewports */
+}
+.overlay .overlay-content {
+    max-height: 86vh;
+    overflow: auto;
+    box-sizing: border-box;
+}
+/* Specific tuning for settings modal: center its internal content vertically */
+.settings-content {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: stretch;
+    width: min(860px, 94vw);
+    max-height: 86vh;
+}
+
+/* small visual for key listening state */
+.key-btn.listening { outline: 3px solid rgba(255,80,120,0.95); box-shadow: 0 6px 18px rgba(255,80,120,0.12); }
+
+/* Member Selection UI */
+#member-select-screen h1,
+#member-select-screen p {
+    color: #ffffff;
+}
+
+#member-catalog-screen h1,
+#member-catalog-screen p {
+    color: #ffffff;
+}
+
+#member-selection-area {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+}
+.selected-slots {
+    width: 100%;
+    max-width: 1100px;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr); /* 5 slots shown horizontally */
+    gap: 10px;
+    align-items: stretch;
+    justify-content: center; /* center the grid inside container */
+}
+.slot {
+    background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.01));
+    border: 1px solid rgba(255,255,255,0.03);
+    padding: 12px;
+    border-radius: 12px;
+    height: 140px; /* increase to fit framed thumb + level */
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    color: #ffffff;
+    position:relative;
+}
+.slot-card { display:flex; flex-direction:column; align-items:center; gap:8px; }
+.slot-thumb {
+    width:86px; /* outer white frame */
+    height:86px;
+    background:#fff; /* white frame like waiting room */
+    padding:6px;
+    border-radius:12px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.45) inset;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+}
+.slot-thumb img { width:100%; height:100%; object-fit:cover; border-radius:8px; display:block; }
+.slot-level-pill { background:#fff; color:#111; padding:6px 10px; border-radius:12px; font-weight:800; font-size:12px; }
+.slot .slot-controls { display:flex; gap:8px; margin-top:8px; }
+.slot .small { padding:6px 8px; font-size:12px; border-radius:8px; border:none; cursor:pointer; }
+.slot .remove.small { background: rgba(255,255,255,0.04); color:#fff; border:1px solid rgba(255,255,255,0.03); }
+.slot .assign.small { background: linear-gradient(90deg,#00c3ff,#0072ff); color:#fff; }
+.empty-avatar { font-size:28px; color:rgba(255,255,255,0.6); }
+.slot-empty-label { font-size:12px; color:rgba(255,255,255,0.6); margin-top:6px; }
+
+#member-catalog-list {
+    color: #ffffff;
+}
+
+.character-list {
+    width: 70%;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    max-height: 380px;
+    overflow:auto;
+}
+.char-card {
+    background: #fff; /* white card like screenshot */
+    border: 1px solid rgba(0,0,0,0.08);
+    padding: 6px;
+    border-radius: 10px;
+    color: #111;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:flex-start;
+    width: 96px;
+    box-sizing: border-box;
+    position: relative;
+}
+
+/* check badge shown when card is selected */
+.char-card .check-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: linear-gradient(180deg,#ff6b9b,#ff3b7a);
+    color: #fff;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+    z-index: 30;
+}
+.char-card.selected .check-badge { display: flex; }
+.char-card .thumb-wrap { width:72px; height:72px; border-radius:8px; overflow:hidden; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg,#eee,#ddd); position:relative; }
+.char-thumb { width:100%; height:100%; object-fit:cover; display:block; }
+.thumb-fallback { position:absolute; font-weight:900; color:#333; font-size:20px; }
+.char-info { width:100%; text-align:center; margin-top:6px; }
+.char-meta { margin-top:4px; display:flex; gap:8px; justify-content:center; align-items:center; }
+.char-name { font-weight:800; font-size:13px; color:#222; max-width:60px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.char-level { display:flex; align-items:center; }
+.char-level .level { background:#f0f0f0; padding:4px 8px; border-radius:8px; font-size:11px; font-weight:800; color:#222; }
+.char-card .level { background:#f0f0f0; padding:4px 6px; border-radius:6px; font-size:11px; font-weight:700; }
+.char-card .skill-badge { background:#ffe7f0; padding:4px 6px; border-radius:8px; color:#b21c46; font-weight:800; font-size:11px; }
+
+/* override: show compact pink badge for card skill summary */
+.char-card .skill-badge { background: #ffdfe8; color: #b21c46; font-weight:800; padding:6px 8px; border-radius:10px; font-size:12px; }
+
+/* member catalog list container - make it a grid like screenshot */
+#member-catalog-list { display:grid; grid-template-columns: repeat(6, 1fr); gap:10px; padding:10px; max-height:480px; overflow:auto; }
+.char-card h3 { margin:0 0 6px 0; font-size:16px; }
+.char-card p { margin:0; font-size:13px; color:#ccc; }
+.char-card button { margin-top:8px; padding:6px 8px; border-radius:6px; border:none; cursor:pointer; }
+.char-card .add-btn { background:#00bcd4; color:#072125; }
+.char-card .add-btn[disabled] { background:#666; cursor:not-allowed; }
+
+/* small info button on card */
+.char-card .info-btn {
+    position: absolute;
+    left: 8px;
+    top: 8px;
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    background: rgba(0,0,0,0.06);
+    color: #222;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:700;
+    border:1px solid rgba(0,0,0,0.06);
+    cursor: pointer;
+}
+
+/* Character detail modal (re-uses overlay + overlay-content) */
+#char-detail-modal .overlay-content.char-detail { max-width: 520px; width: 92%; padding: 20px; display:flex; flex-direction:column; gap:12px; align-items:center; }
+.char-detail .thumb-wrap.large { width:120px; height:120px; border-radius:12px; overflow:hidden; }
+.char-detail .thumb-wrap.large img { width:100%; height:100%; object-fit:cover; display:block; }
+.char-detail .char-name-large { font-size:20px; font-weight:900; color:#fff; }
+.char-detail .level-row { display:flex; gap:10px; align-items:center; }
+.char-detail .level-row .level-value { font-weight:900; background:#fff; color:#111; padding:6px 8px; border-radius:8px; }
+.char-detail .level-row .level-up-btn { padding:6px 10px; border-radius:8px; background:linear-gradient(90deg,#ff7aa2,#ff3b7a); border:none; color:#fff; font-weight:800; cursor:pointer; }
+.char-detail .skill-info { background: rgba(255,255,255,0.03); padding:10px; border-radius:8px; color:#eee; width:100%; box-sizing:border-box; text-align:left; }
+.char-detail .close-btn { margin-top:6px; padding:8px 12px; border-radius:8px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.04); color:#fff; cursor:pointer; }
+
+/* slot info button */
+.slot .slot-info-btn { margin-left:8px; padding:6px 8px; border-radius:6px; background: rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.03); color:#fff; cursor:pointer; }
+.slot .slot-info-btn:hover { background: rgba(255,255,255,0.06); }
+
+.skill-badge { font-size:12px; padding:4px 6px; border-radius:6px; background:rgba(0,255,255,0.08); color:#00ffff; margin-left:6px; }
+
+/* Small responsive tweak for overlay content */
+@media (max-width:800px) {
+    .character-list { grid-template-columns: repeat(2,1fr); }
+    .selected-slots { width: 40%; }
+}
+
+/* Song list & preview */
+.song-list {
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    max-height:220px;
+    overflow:auto;
+}
+.song-card {
+    display:flex;
+    gap:8px;
+    align-items:center;
+    padding:6px;
+    border-radius:6px;
+    background: rgba(255,255,255,0.02);
+    border:1px solid rgba(255,255,255,0.04);
+    cursor:pointer;
+}
+.song-card:hover { background: rgba(255,255,255,0.04); }
+.song-thumb { width:48px; height:48px; background:linear-gradient(45deg,#333,#666); border-radius:6px; flex-shrink:0; }
+.song-info { color:#eee; font-size:14px; }
+.song-preview { padding:8px; border-radius:8px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.04); min-height:80px; color:#eee; }
+
+/* Slot highlight while swapping */
+.slot.swap-target { outline: 2px dashed #00ffff; }
+
+/* Character detail popover */
+.char-detail {
+    position:relative;
+    padding:8px;
+    background: rgba(20,20,20,0.95);
+    border:1px solid rgba(255,255,255,0.04);
+    border-radius:8px;
+}
+.char-detail h4 { margin:0 0 6px 0; color:#00ffff; }
+.char-detail p { margin:0; color:#ccc; font-size:13px; }
+.level-btn { margin-top:8px; padding:6px 8px; border-radius:6px; border:none; background:#ff8a00; color:#072125; cursor:pointer; }
+
+/* Member catalog list (full screen) */
+/* Member catalog list (full screen) - grid of cards like collection view */
+#member-catalog-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+    gap: 10px;
+    padding: 10px;
+    max-height: 84vh;
+    overflow: auto;
+    align-items: start;
+    justify-items: center;
+}
+
+/* DJMax-like Song Select Styles */
+.song-select-container {
+    display: flex;
+    gap: 20px;
+    align-items: stretch;
+    pointer-events: auto;
+    z-index: 2000; /* bring song-select above other decorations */
+}
+.left-panel {
+    width: 44%;
+    background: linear-gradient(180deg, rgba(20,20,30,0.9), rgba(10,10,15,0.8));
+    padding: 18px;
+    border-radius: 10px;
+    display:flex;
+    gap:16px;
+    align-items:flex-start;
+}
+.album-art {
+    width: 320px;
+    height: 220px;
+    background: linear-gradient(135deg,#222,#444);
+    border-radius: 8px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.03);
+    flex-shrink:0;
+}
+.song-meta { color: #eee; flex:1; }
+.song-title { font-size: 26px; font-weight:700; color: #f6f9ff; margin-bottom:6px; text-shadow: 0 6px 24px rgba(80,120,255,0.12); }
+.song-artist { color:#bfbfc8; margin-bottom:12px; }
+.difficulty-buttons { display:flex; gap:8px; margin-bottom:10px; }
+.diff-btn { padding:8px 10px; border-radius:6px; border:none; background:rgba(255,255,255,0.03); color:#ddd; cursor:pointer; font-weight:700; position: relative; z-index: 1200; pointer-events: auto; }
+/* special-chart style removed (SC button not used) */
+.diff-btn:active { transform: translateY(1px) scale(0.996); }
+.diff-btn.active {
+    background: linear-gradient(90deg, #6a11cb, #2575fc);
+    color: #fff;
+    box-shadow: 0 8px 20px rgba(60,40,160,0.28), inset 0 1px 0 rgba(255,255,255,0.06);
+    transform: translateY(0);
+}
+.diff-btn.active::after {
+    content: '';
+    position: absolute;
+    left: 6px; right: 6px; bottom: 6px; height: 2px;
+    background: linear-gradient(90deg, rgba(255,255,255,0.18), rgba(255,255,255,0.02));
+    border-radius: 2px;
+    opacity: 0.9;
+}
+.diff-debug { /* removed debug indicator styling (cleanup) */ display:none; }
+.stars { margin:8px 0 12px 0; }
+.stars .star { display:inline-block; width:12px; height:12px; margin-right:4px; background:#444; border-radius:2px; }
+.record-stats { color:#9aa0a6; font-size:13px; margin-top:8px; }
+
+.right-panel { width:56%; display:flex; flex-direction:column; gap:12px; }
+.tabs { display:flex; gap:10px; margin-bottom:8px; }
+.tab { padding:8px 12px; background: rgba(255,255,255,0.02); color:#cfd6da; border-radius:6px; font-weight:700; cursor:pointer; }
+.tab.active { background: linear-gradient(90deg,#2b7cff,#8a2be2); color:#fff; box-shadow: 0 6px 18px rgba(75,100,255,0.12); }
+
+.songs-right .song-item { display:flex; align-items:center; gap:12px; padding:12px; border-radius:8px; cursor:pointer; transition: all 150ms ease; background: rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.02); }
+.songs-right .song-item:hover { transform: translateX(6px); background: rgba(255,255,255,0.02); }
+.songs-right .song-item .thumb { width:56px; height:56px; border-radius:6px; background:linear-gradient(135deg,#222,#555); flex-shrink:0; }
+.songs-right .song-item .info { flex:1; color:#e8eef7; }
+.songs-right .song-item .info .name { font-weight:700; font-size:15px; }
+.songs-right .song-item .info .sub { color:#9aa0a6; font-size:13px; }
+.songs-right .song-item.selected { background: linear-gradient(90deg,#6a11cb,#2575fc); color:#fff; box-shadow: 0 8px 30px rgba(60,40,160,0.12); transform: translateX(0); }
+.songs-right .song-item.selected .info .name { color:#fff; }
+
+.song-select-bottom { margin-top:14px; display:flex; justify-content:space-between; align-items:center; padding-top:12px; border-top:1px solid rgba(255,255,255,0.03); }
+.controls-left { color:#9aa0a6; font-weight:700; }
+.controls-right { display:flex; gap:10px; }
+.play-btn { padding:10px 18px; background: linear-gradient(90deg,#00c3ff,#0072ff); color:#fff; border:none; border-radius:8px; cursor:pointer; font-weight:800; }
+.back-btn { padding:8px 14px; background: rgba(255,255,255,0.03); color:#ddd; border:none; border-radius:8px; cursor:pointer; }
+
+/* 기본 스타일 */
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #222;
+    color: #fff;
+    margin: 0;
+    padding: 0;
+}
+
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.overlay-content {
+    background: #333;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+    text-align: center;
+}
+
+button {
+    background: #ff4081;
+    color: #fff;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background 0.3s;
+    font-weight: bold;
+}
+
+button:hover {
+    background: #e0356d;
+}
+
+button:active {
+    transform: scale(0.98);
+}
+
+.album-art {
+    width: 200px;
+    height: 200px;
+    background: #444;
+    margin: 0 auto;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+.song-meta {
+    margin-top: 20px;
+}
+
+.song-title {
+    font-size: 24px;
+    font-weight: bold;
+}
+
+.song-artist {
+    font-size: 18px;
+    color: #aaa;
+}
+
+.tabs {
+    display: flex;
+    justify-content: center;
+    margin-top: 20px;
+}
+
+.tab {
+    padding: 10px 20px;
+    margin: 0 5px;
+    background: #555;
+    color: #fff;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.tab.active {
+    background: #ff4081;
+}
+
+.tab:hover {
+    background: #666;
+}
+
+.song-list {
+    margin-top: 20px;
+    max-height: 400px;
+    overflow-y: auto;
+    background: #222;
+    padding: 10px;
+    border-radius: 5px;
+}
+
+.play-btn {
+    background: #4caf50;
+}
+
+.back-btn {
+    background: #f44336;
+}
+
+/* Member item styles */
+.member-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.3s;
+    color: #ffffff;
+}
+
+.member-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.member-item.selected {
+    background: rgba(255, 100, 200, 0.3);
+    border-color: rgba(255, 100, 200, 0.8);
+}
+
+.member-item .info-wrap {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex: 1;
+}
+
+.member-item .avatar {
+    width: 50px;
+    height: 50px;
+    background: linear-gradient(135deg, #ff4081, #f50057);
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: bold;
+    color: #ffffff;
+}
+
+.member-item .skill-badge {
+    background: rgba(0, 255, 255, 0.2);
+    color: #00ffff;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+    margin-left: 6px;
+}
+
+.member-item .meta {
+    color: #aaaaaa;
+    font-size: 12px;
+}
+
+/* Realtime judgement popup shown above the judgement line */
+#judgement-display {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: 90px; /* slightly above judgement line */
+    pointer-events: none;
+    z-index: 300;
+    font-weight: 900;
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+    text-align: center;
+    text-shadow: 0 8px 24px rgba(0,0,0,0.6);
+    opacity: 1;
+    z-index: 1200; /* ensure above HUD but below overlays */
+    pointer-events: none;
+}
+.judgement-text {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 10px;
+    color: white;
+    font-size: 44px; /* reduced size for less intrusive judgement text */
+    line-height: 1.05;
+    transform: translateY(0);
+    filter: drop-shadow(0 8px 18px rgba(0,0,0,0.6));
+    transition: transform 120ms ease-out, opacity 200ms ease-out;
+}
+.judgement-perfect { background: linear-gradient(90deg,#ffd36d,#ffb84a); color:#2b1700; }
+.judgement-good { background: linear-gradient(90deg,#9ce6ff,#49c7ff); color:#02212b; }
+.judgement-miss { background: linear-gradient(90deg,#555555,#222222); color:#fff; opacity:0.95; }
+.judgement-great { background: linear-gradient(90deg,#a6ff8a,#4caf50); color:#07220b; }
+.judgement-bad { background: linear-gradient(90deg,#ffd6a8,#ff8a4a); color:#3a1f00; }
+.judgement-anim {
+    /* kept for backward compatibility */
+    animation: judgement-pop 900ms ease-out forwards;
+}
+@keyframes judgement-pop {
+    0% { transform: translateY(10px) scale(0.9); opacity: 0; }
+    30% { transform: translateY(-6px) scale(1.06); opacity: 1; }
+    100% { transform: translateY(-34px) scale(1); opacity: 0; }
+}
+
+/* Particle judgement styles removed to restore original simple centred judgement */
+
+/* Result / Pause / Settings additional styles */
+.result-content { display:flex; gap:28px; align-items:center; }
+.result-left { background: linear-gradient(180deg,#1b1f22,#0d0d0d); padding:24px; border-radius:12px; color:#fff; width:420px; }
+.final-rank { font-size:56px; font-weight:800; color:#ffe68a; text-shadow:0 6px 18px rgba(0,0,0,0.6); }
+.final-score { font-size:28px; margin-top:8px; color:#fff; }
+.final-stats { margin-top:12px; font-size:16px; color:#ddd; display:flex; flex-direction:column; gap:6px; }
+.result-right { width:260px; display:flex; align-items:center; justify-content:center; }
+.result-buttons button { display:block; width:200px; margin:8px 0; padding:10px 14px; border-radius:8px; border:none; background:#00bcd4; color:#072125; font-weight:700; }
+
+/* Pause menu */
+#pause-menu .pause-content { width:360px; padding:24px; text-align:center; border-radius:12px; background:linear-gradient(180deg,#111,#0b0b0b); }
+.pause-buttons button { margin:8px; padding:10px 14px; border-radius:8px; border:none; background:#ff8a65; color:#fff; font-weight:700; }
+
+/* Settings modal */
+#settings-modal .settings-content { width:640px; padding:20px; border-radius:12px; background:#0f1112; color:#eee; display:flex; flex-direction:column; gap:12px; }
+.settings-row { display:flex; align-items:center; gap:12px; }
+.settings-row label { min-width:120px; }
+.settings-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:8px; }
+
+/* Show decorative silhouettes/chibi sprites again (undo forced-hide) */
+/* (rule removed so band silhouettes and chibis display per their original styles) */
+
+/* Progress bar visual (new) */
+#progress-bar-new and fill removed
+
+/* Ensure judgement display sits above canvas but below overlays */
+#judgement-display { z-index: 1200; }
+.settings-actions button { padding:8px 12px; border-radius:8px; border:none; background:#00bcd4; color:#072125; font-weight:700; }
+
+/* Settings button (top-bar) */
+#settings-btn {
+    position: absolute;
+    right: 56px; /* left of pause button */
+    top: 12px;
+    z-index: 250;
+    background: rgba(255,255,255,0.04);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.06);
+    padding: 6px 8px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+#settings-btn:hover { background: rgba(255,255,255,0.08); }
